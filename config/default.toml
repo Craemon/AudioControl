@@ -8,15 +8,15 @@ target = "system"
 
 [[slider]]
 id = 1
-target = "firefox"
+target = "vivaldi"
 
 [[slider]]
 id = 2
-target = "spotify"
+target = "java"
 
 [[slider]]
 id = 3
-target = "spotify"
+target = "Discord"
 
 [[slider]]
 id = 4
