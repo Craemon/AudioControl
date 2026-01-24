@@ -1,4 +1,5 @@
 mod config;
+mod mixer;
 
 use std::io::{BufRead, BufReader, ErrorKind};
 use std::time::Duration;
@@ -6,8 +7,8 @@ use std::fs;
 use config::Config;
 use std::process::{Command, Stdio};
 use std::io::Write;
-use std::collections::HashMap;
-use std::time::Instant;
+use crate::mixer::Mixer;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     //load  and validate config
     let config_str = fs::read_to_string("config/default.toml")?;
@@ -39,11 +40,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let backend_stdin = backend.stdin.as_mut().unwrap();
-
     let mut reader = BufReader::new(port);
 
-    let mut last_sent_value: HashMap<usize, f32> = HashMap::new();
-    let mut last_sent_time: HashMap<usize, Instant> = HashMap::new();
+    let mut mixer = Mixer::new(50,0.3);
+
     //run
     loop {
         let mut line = String::new();
@@ -65,49 +65,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if let Some (raw) = values.get(slider.id) {
                         let volume = *raw as f32 / 1023.0;
 
-                        let now = Instant::now();
-                        let should_send = match last_sent_time.get(&slider.id) {
-                            Some(t) => t.elapsed().as_millis() >= 50, // 20 Hz
-                            None => true,
-                        };
-
-                        if should_send {
-                            let applied = match last_sent_value.get(&slider.id) {
-                                Some(prev) => smooth(*prev, volume, 0.3),
-                                None => volume,
-                            };
-
-                            let applied = applied.clamp(0.0, 1.0);
-
-                            writeln!(
-                                backend_stdin,
-                                "SET {} {:.3}",
-                                slider.target,
-                                applied
-                            )?;
-
-                            last_sent_value.insert(slider.id, applied);
-                            last_sent_time.insert(slider.id, now);
+                        if let Some(applied) = mixer.update(slider.id, volume) {
+                            writeln!(backend_stdin, "SET {} {:.3}", slider.target, applied)?;
                         }
-                        println!("{} -> {:.2}", slider.target, volume);
+                        println!("{} -> {:.3}", slider.target, volume);
                     } else {
                         eprintln!("Warning: no value for slider id {} ({})", slider.id, slider.target);
                     }
                 }
             }
-            Err(e) if e.kind() == ErrorKind::TimedOut => {
-                // timeout, ignore, continue
-            }
+            Err(e) if e.kind() == ErrorKind::TimedOut => {}
             Err(e) if e.kind() == ErrorKind::InvalidData => {
                 eprintln!("Warning: invalid data received, skipping line");
             }
-            Err(e) => {
-                return Err(e.into());
-            }
+            Err(e) => return Err(e.into()),
         }
     }
-}
-
-fn smooth(prev: f32, next: f32, factor: f32) -> f32 {
-    prev + (next - prev) * factor
 }
