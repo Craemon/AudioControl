@@ -1,12 +1,12 @@
 mod config;
 mod mixer;
+mod backend;
 
 use std::io::{BufRead, BufReader, ErrorKind};
 use std::time::Duration;
 use std::fs;
 use config::Config;
-use std::process::{Command, Stdio};
-use std::io::Write;
+use crate::backend::AudioBackend;
 use crate::mixer::Mixer;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,21 +27,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .timeout(Duration::from_millis(100))
         .open()?;
 
-    let mut backend = Command::new("python3")
-        .arg("backend/audio.py")
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-
-    std::thread::sleep(Duration::from_millis(100));
-
-    if let Some(status) = backend.try_wait()? {
-        return Err(format!("Audio backend failed to start (exit code {})", status).into());
-    }
-
-    let backend_stdin = backend.stdin.as_mut().unwrap();
+    let mut backend = AudioBackend::start()?;
     let mut reader = BufReader::new(port);
-
     let mut mixer = Mixer::new(50,0.3);
 
     //run
@@ -66,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let volume = *raw as f32 / 1023.0;
 
                         if let Some(applied) = mixer.update(slider.id, volume) {
-                            writeln!(backend_stdin, "SET {} {:.3}", slider.target, applied)?;
+                            backend.set_volume(&slider.target, applied)?;
                         }
                         println!("{} -> {:.3}", slider.target, volume);
                     } else {
