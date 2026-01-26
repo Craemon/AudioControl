@@ -40,9 +40,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for slider in &config.slider {
                 if let Some(raw) = values.get(slider.id) {
                     if let Some(applied) = mixer.update(slider.id, *raw) {
-                        backend.set_volume(&slider.target, applied)?;
+                        for target in &slider.targets {
+                            backend.set_volume(target, applied)?;
+                        }
                     }
-                    println!("{} -> {:.3}", slider.target, raw);
+                    println!("{} -> {:.3} ({})", slider.id, raw, slider.targets.join(", "));
                 }
             }
         }

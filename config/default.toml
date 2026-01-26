@@ -4,20 +4,20 @@ baud = 9600
 
 [[slider]]
 id = 0
-target = "system"
+targets = ["system"]
 
 [[slider]]
 id = 1
-target = "vivaldi"
+targets = ["vivaldi"]
 
 [[slider]]
 id = 2
-target = "java"
+targets = ["java"]
 
 [[slider]]
 id = 3
-target = "Discord"
+targets = ["Discord"]
 
 [[slider]]
 id = 4
-target = "spotify"
+targets = ["spotify", "vlc"]

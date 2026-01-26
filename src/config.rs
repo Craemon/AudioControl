@@ -12,7 +12,7 @@ pub struct SerialConfig {
 #[derive(Debug, Deserialize)]
 pub struct SliderConfig {
     pub id: usize,
-    pub target: String,
+    pub targets: Vec<String>,
 }
 impl Config {
     pub fn validate(&self) -> Result<(), String> {
@@ -28,6 +28,11 @@ impl Config {
             return Err("Slider IDs must start at 0".into());
         }
 
+        for slider in &self.slider {
+            if slider.targets.is_empty() {
+                return Err(format!("No targets provided for slider {}", slider.id));
+            }
+        }
         Ok(())
     }
 }
