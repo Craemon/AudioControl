@@ -1,25 +1,44 @@
 #!/bin/sh
 set -e
 
-VERSION=$(curl -s https://api.github.com/repos/Craemon/AudioControl/releases/latest \
+LATEST=$(curl -s https://api.github.com/repos/Craemon/AudioControl/releases/latest \
   | grep tag_name | cut -d '"' -f 4)
 
-BASE_URL="https://github.com/Craemon/AudioControl/releases/download/$VERSION"
+BASE_URL="https://github.com/Craemon/AudioControl/releases/download/$LATEST"
+INSTALL_DIR="/usr/local/lib/audiocontrol"
 
-echo "Updating to $VERSION..."
+echo "Updating to $LATEST..."
+
+# Python dependency check (FIXED)
+echo "Checking Python dependency: pulsectl..."
+if ! python3 -c "import pulsectl" 2>/dev/null; then
+    echo "Installing pulsectl..."
+
+    python3 -m pip install pulsectl || {
+        echo "ERROR: failed to install pulsectl"
+        echo "Try system package: sudo apt install python3-pulsectl"
+        exit 1
+    }
+fi
 
 # update binary
 sudo curl -L "$BASE_URL/audiocontrol" \
-  -o /usr/local/lib/audiocontrol/audiocontrol
+  -o "$INSTALL_DIR/audiocontrol"
 
-# update python backend
+# validate binary
+if ! file "$INSTALL_DIR/audiocontrol" | grep -q "ELF"; then
+    echo "ERROR: invalid binary downloaded during update"
+    exit 1
+fi
+
+# update backend
 sudo curl -L "$BASE_URL/audio.py" \
-  -o /usr/local/lib/audiocontrol/backend/audio.py
+  -o "$INSTALL_DIR/backend/audio.py"
 
-# update default config (optional but recommended)
+# update config
 sudo curl -L "$BASE_URL/default.toml" \
-  -o /usr/local/lib/audiocontrol/config/default.toml
+  -o "$INSTALL_DIR/config/default.toml"
 
-sudo chmod +x /usr/local/lib/audiocontrol/audiocontrol
+sudo chmod +x "$INSTALL_DIR/audiocontrol"
 
 echo "Update complete."
