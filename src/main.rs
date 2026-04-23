@@ -6,14 +6,16 @@ mod input;
 use std::io::BufReader;
 use std::time::Duration;
 use std::fs;
+use std::path::PathBuf;
 use config::Config;
 use crate::backend::AudioBackend;
 use crate::input::SliderInput;
 use crate::mixer::Mixer;
+const DEFAULT_CONFIG: &str = "/usr/local/lib/audiocontrol/config/default.toml";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     //load  and validate config
-    let config_str = fs::read_to_string("config/default.toml")?;
+    let config_str = load_config()?;
     let config: Config = toml::from_str(&config_str)?;
 
     config.validate().map_err(|e| {
@@ -49,4 +51,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
+}
+
+fn config_path() -> PathBuf {
+    dirs::home_dir()
+        .unwrap()
+        .join(".config/audiocontrol/config.toml")
+}
+
+fn load_config() -> Result<String, Box<dyn std::error::Error>> {
+    let user_config = config_path();
+
+    if !user_config.exists() {
+        if let Some(parent) = user_config.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        fs::copy(DEFAULT_CONFIG, &user_config)?;
+        println!("Created config at {:?}", user_config);
+    }
+
+    Ok(fs::read_to_string(user_config)?)
 }

@@ -1,13 +1,19 @@
 use std::process::{Command, Child, Stdio};
 use std::io::{Write, Result};
 use std::time::Duration;
+
+const BACKEND: &str = if cfg!(debug_assertions) {
+    "backend/audio.py"
+} else {
+    "/usr/local/lib/audiocontrol/backend/audio.py"
+};
 pub struct AudioBackend {
     child: Child,
 }
 impl AudioBackend {
     pub fn start() -> Result<Self> {
         let mut child = Command::new("python3")
-            .arg("backend/audio.py")
+            .arg(BACKEND)
             .stdin(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;
