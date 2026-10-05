@@ -8,18 +8,32 @@ except ImportError:
 
 pulse = pulsectl.Pulse("audiocontrol")
 
-def set_volume(target, volume):
+def match_sink_input(target: str, sink_input) -> bool:
+    target_lower = target.lower()
+    props = sink_input.proplist
+
+    # Collect all relevant properties that might identify the application
+    candidates = [
+        props.get("application.name", ""),
+        props.get("application.process.binary", ""),
+        props.get("media.name", ""),
+        props.get("node.name", ""),
+    ]
+
+    # Return True if target matches any property
+    return any(target_lower in val.lower() for val in candidates if val)
+
+def set_volume(target: str, volume: float):
     volume = max(0.0, min(1.0, volume))
 
-    if target == "system":
+    if target.lower() == "system":
         sink = pulse.get_sink_by_name(pulse.server_info().default_sink_name)
         pulse.volume_set_all_chans(sink, volume)
         return
 
     # per-app volume
     for sink_input in pulse.sink_input_list():
-        app = sink_input.proplist.get("application.name", "").lower()
-        if target.lower() in app:
+        if match_sink_input(target, sink_input):
             pulse.volume_set_all_chans(sink_input, volume)
 
 for line in sys.stdin:
@@ -27,12 +41,18 @@ for line in sys.stdin:
     if not line:
         continue
 
-    parts = line.split()
-    if len(parts) != 3 or parts[0] != "SET":
+    parts = line.rsplit(maxsplit=1)
+    if len(parts) != 2:
         continue
 
-    _, target, value = parts
+    cmd_and_target, value_str = parts
+    cmd_parts = cmd_and_target.split(maxsplit=1)
+    if len(cmd_parts) != 2 or cmd_parts[0] != "SET":
+        continue
+
+    target = cmd_parts[1]
+
     try:
-        set_volume(target, float(value))
+        set_volume(target, float(value_str))
     except Exception as e:
         print(f"ERROR {e}", file=sys.stderr)
